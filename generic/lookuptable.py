@@ -1,10 +1,10 @@
 #!/usr/bin/python
-# author:       Máire Ní Leathlobhair
+# author:       Máire Ní Leathlobhair (ml677@cam.ac.uk)
 # date:         May 2016
-# description:  Filters tumour variants against matched normal based on variant allele fraction (VAF). If a variant occurs in both tumour
-#               and matched normal with VAF>=0.9, variant is not filtered. If a variant occurs in both tumour and matched normal with
-#               VAF<0.9 in tumour, variant is discarded. If a variant is called only in the tumour, variant is not filtered.
-
+# description:  Filters tumour variants against matched normal based on variant allele fraction (VAF). 
+#               If a variant occurs in both tumour and matched normal with VAF>=0.9, variant is not 
+#               filtered. If a variant occurs in both tumour and matched normal with VAF<0.9 in tumour, 
+#               variant is discarded. If a variant is called only in the tumour, variant is not filtered.
 
 import sys
 import os
