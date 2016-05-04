@@ -14,6 +14,7 @@ if [ "$#" -ne 4 ]; then
 	echo "| lookuptable_wrapper.sh: Creates variant lists and VAF plots from Mitotypus output"
 	echo "|"
 	echo "| Usage: lookuptable_wrapper.sh /path/to/GenotypedVariants_final.vcf [number of samples to be analysed] /path/to/scripts/folder /path/to/reference/MT/genome"
+	exit
 fi
 
 PLATYPUSOUT="$1"
@@ -43,8 +44,8 @@ function rawVariantLists {
 	do 
 		name=$(awk -v y="$i" '{print $y}' ${PLATYPUSOUT}/sample_names.tmp.vcf)
 		echo -e "\nGenerating variant list for $name\n"	
-		awk -v z="$i" '{print $1,$2,$4,$5,$6,$7,$z}' ${PLATYPUSOUT}/data.tmp.vcf |sed -e 's/:/ /g'| awk '{if($12!="0"){$13=$12 / $11 ;print $1,$2,$3">"$4,$5,$6,$13}}' | awk '{if(length($3) == 3){print $0}}' > ${VARIANTS}/${name}_substitutions.txt
-		awk -v z="$i" '{print $1,$2,$4,$5,$6,$7,$z}' ${PLATYPUSOUT}/data.tmp.vcf |sed -e 's/:/ /g'| awk '{if($12!="0"){$13=$12 / $11 ;print $1,$2,$3">"$4,$5,$6,$13}}' | awk '{if(length($3) > 3){print $0}}' > ${VARIANTS}/${name}_indels.txt
+		awk -v z="$i" '{print $1,$2,$4,$5,$6,$7,$z}' ${PLATYPUSOUT}/data.tmp.vcf |sed -e 's/:/ /g'| awk '{if($12!="0"){$13=$12 / $11 ;print $1,$2,$3">"$4,$13}}' | awk '{if(length($3) == 3){print $0}}' > ${VARIANTS}/${name}_substitutions.txt
+		awk -v z="$i" '{print $1,$2,$4,$5,$6,$7,$z}' ${PLATYPUSOUT}/data.tmp.vcf |sed -e 's/:/ /g'| awk '{if($12!="0"){$13=$12 / $11 ;print $1,$2,$3">"$4,$13}}' | awk '{if(length($3) > 3){print $0}}' > ${VARIANTS}/${name}_indels.txt
 	done
 	mv ${VARIANTS}/*H*_indels.txt ${VARIANTS}/host/indels
 	mv ${VARIANTS}/*H*_substitutions.txt ${VARIANTS}/host/substitutions/
@@ -56,7 +57,7 @@ function rawVariantLists {
 function lookupStep {
 # compare variants called in matched host tumour samples by PM value and discard host contamination
  echo -e "\n(2) FILTERING VARIANT LISTS. EXECUTING LOOKUP STEP\n"
-	
+	rm -f ${SCRIPTS}/unmatched_tumours.txt # prevent continuously writing to this text file when re-running wrapper script
 	for x in $(ls ${VARIANTS}/tumour/substitutions/pre-lookup/*.txt);
 	do
 		sample_name=$(echo ${x##*/} | cut -d'_' -f1)
@@ -76,7 +77,7 @@ function lookupStep {
 }
 
 function vafPlot {
-	echo "CHROM POS REF>ALT QUAL FILTER PM" > ${PLATYPUSOUT}/header.tmp.txt
+	echo "CHROM POS REF>ALT VAF" > ${PLATYPUSOUT}/header.tmp.txt
         echo -e "\n(3) ADDING HEADERS TO VARIANT LISTS\n"
         mkdir -p ${VARIANTS}/tumour/substitutions/pre-lookup/headers ${VARIANTS}/tumour/substitutions/post-lookup/headers ${VARIANTS}/host/substitutions/headers
         for j in $(ls ${VARIANTS}/tumour/substitutions/pre-lookup/*.txt ${VARIANTS}/tumour/substitutions/post-lookup/*.txt ${VARIANTS}/host/substitutions/*.txt);
