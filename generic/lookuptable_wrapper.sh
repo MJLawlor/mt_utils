@@ -26,7 +26,13 @@ DATE=$(date +%y-%m-%d)
 REFERENCE="$4"
 mkdir -p ${PIPELINE} ${VARIANTS} ${VARIANTS}/tumour ${VARIANTS}/host ${VARIANTS}/tumour/substitutions ${VARIANTS}/host/substitutions ${VARIANTS}/host/indels ${VARIANTS}/tumour/indels ${VARIANTS}/tumour/substitutions/pre-lookup ${VARIANTS}/tumour/substitutions/post-lookup ${PIPELINE}/vaf 
 
-function makeUnfilteredVariantLists { 
+function checkArray {
+  local i
+  for i in "${@:2}"; do [[ "$i" == "$1" ]] && return 0; done
+  return 1
+}
+
+function rawVariantLists { 
 	echo -e "\n(1) EXTRACTING VARIANT LISTS FROM GenotypedVariants_final.vcf\n"
 	input=${PLATYPUSOUT}/GenotypedVariants_final.vcf
 	loopvar=$(($SAMPLES + 9))
@@ -37,17 +43,13 @@ function makeUnfilteredVariantLists {
 	do 
 		name=$(awk -v y="$i" '{print $y}' ${PLATYPUSOUT}/sample_names.tmp.vcf)
 		echo -e "\nGenerating variant list for $name\n"	
-		awk -v z="$i" '{print $1,$2,$4,$5,$6,$7,$z}' ${PLATYPUSOUT}/data.tmp.vcf |sed -e 's/:/ /g'| awk '{if($12!="0"){$13=$12 / $11 ;print $1,$2,$3">"$4,$5,$6,$13}}' | awk '{if(length($3) == 3){print 
-$0}}' > ${VARIANTS}/${name}_substitutions.txt
-		awk -v z="$i" '{print $1,$2,$4,$5,$6,$7,$z}' ${PLATYPUSOUT}/data.tmp.vcf |sed -e 's/:/ /g'| awk '{if($12!="0"){$13=$12 / $11 ;print $1,$2,$3">"$4,$5,$6,$13}}' | awk '{if(length($3) > 3){print $
-0}}' > ${VARIANTS}/${name}_indels.txt
+		awk -v z="$i" '{print $1,$2,$4,$5,$6,$7,$z}' ${PLATYPUSOUT}/data.tmp.vcf |sed -e 's/:/ /g'| awk '{if($12!="0"){$13=$12 / $11 ;print $1,$2,$3">"$4,$5,$6,$13}}' | awk '{if(length($3) == 3){print $0}}' > ${VARIANTS}/${name}_substitutions.txt
+		awk -v z="$i" '{print $1,$2,$4,$5,$6,$7,$z}' ${PLATYPUSOUT}/data.tmp.vcf |sed -e 's/:/ /g'| awk '{if($12!="0"){$13=$12 / $11 ;print $1,$2,$3">"$4,$5,$6,$13}}' | awk '{if(length($3) > 3){print $0}}' > ${VARIANTS}/${name}_indels.txt
 	done
-	## sort variant lists into folders
 	mv ${VARIANTS}/*H*_indels.txt ${VARIANTS}/host/indels
 	mv ${VARIANTS}/*H*_substitutions.txt ${VARIANTS}/host/substitutions/
 	mv ${VARIANTS}/*T*_indels.txt ${VARIANTS}/tumour/indels
 	mv ${VARIANTS}/*T*_substitutions.txt ${VARIANTS}/tumour/substitutions/pre-lookup
-	###clean up
 	rm ${PLATYPUSOUT}/*tmp*
 }
 
@@ -59,12 +61,12 @@ function lookupStep {
 	do
 		sample_name=$(echo ${x##*/} | cut -d'_' -f1)
 		tumour_number=$(echo ${x##*/} | cut -d'T' -f1)
-		#### check if matched host exists
+		# check if matched host exists
 		if [ -f ${VARIANTS}/host/substitutions/${tumour_number}H* ]
 		then
 			matched_host=$(ls ${VARIANTS}/host/substitutions/${tumour_number}H*)
 			echo -e "\nFiltering $sample_name against ${matched_host} \n" 
-			python ${SCRIPTS}/lookuptable.py ${VARIANTS}/tumour/substitutions/pre-lookup/${sample_name}.txt ${matched_host} | sort -k 2,2n > ${VARIANTS}/tumour/substitutions/post-lookup/${sample_name}.txt
+			python ${SCRIPTS}/lookuptable.py ${VARIANTS}/tumour/substitutions/pre-lookup/${sample_name}_substitutions.txt ${matched_host} | sort -k 2,2n > ${VARIANTS}/tumour/substitutions/post-lookup/${sample_name}.txt
 			elif [ ! -f ${VARIANTS}/host/substitutions/${tumour_number}H* ];
 			then
 			 echo -e "\nFiltering unmatched tumour sample ${sample_name} \n"  
@@ -72,3 +74,49 @@ function lookupStep {
 			fi
 		done
 }
+
+function vafPlot {
+	echo "CHROM POS REF>ALT QUAL FILTER PM" > ${PLATYPUSOUT}/header.tmp.txt
+        echo -e "\n(3) ADDING HEADERS TO VARIANT LISTS\n"
+        mkdir -p ${VARIANTS}/tumour/substitutions/pre-lookup/headers ${VARIANTS}/tumour/substitutions/post-lookup/headers ${VARIANTS}/host/substitutions/headers
+        for j in $(ls ${VARIANTS}/tumour/substitutions/pre-lookup/*.txt ${VARIANTS}/tumour/substitutions/post-lookup/*.txt ${VARIANTS}/host/substitutions/*.txt);
+        do
+                path=$(dirname "${j}")
+                sample_name=$(echo ${j##*/} | sed 's/.txt//g'|cut -d'_' -f1)
+                echo -e "\nAdding header to ${sample_name}\n"
+                cat ${PLATYPUSOUT}/header.tmp.txt $j > ${path}/headers/${sample_name}.header.txt
+        done
+        rm ${PLATYPUSOUT}/*tmp*
+        echo -e "\n(4) CREATING VAF PLOTS FOR TUMOUR AND HOST SAMPLES\n"
+        for x in $(ls ${VARIANTS}/tumour/substitutions/pre-lookup/headers/*txt ${VARIANTS}/host/substitutions/headers/*txt);
+        do
+         text_file=$(basename "${x}")
+         tumour_name=$(echo $text_file | cut -d'-' -f1)
+         sample_name=$(echo $text_file | sed 's/.txt//g')
+         sample=$(echo $sample_name | sed 's/\.header//g')
+         path=$(dirname "${x}")
+         IFS=$'\n' read -d '' -r -a unmatched_tumour < ${SCRIPTS}/unmatched_tumours.txt
+         checkArray "${tumour_name}-Devil" "${unmatched_tumour[@]}"
+         check=$(echo $?)
+         if [ $check == "1" ] && [[ $tumour_name == *"T"* ]];
+         then
+          echo -e "\nGenerating VAF plot for matched tumour ${tumour_name}\n"
+          Rscript $SCRIPTS/vaf.R $x ${VARIANTS}/tumour/substitutions/post-lookup/headers/$text_file ${PIPELINE}/vaf/${sample_name}.pdf $sample
+          Rscript $SCRIPTS/vaf.R $x ${VARIANTS}/tumour/substitutions/post-lookup/headers/$text_file ${PIPELINE}/vaf/${sample_name}_labelled.pdf $sample label
+         elif [[ $tumour_name == *"H"* ]]
+         then
+          echo -e "\nGenerating VAF plot for host ${tumour_name}\n"
+          Rscript $SCRIPTS/vaf.R $x ${VARIANTS}/host/substitutions/headers/$text_file ${PIPELINE}/vaf/${sample_name}.pdf $sample
+          Rscript $SCRIPTS/vaf.R $x ${VARIANTS}/host/substitutions/headers/$text_file ${PIPELINE}/vaf/${sample_name}_labelled.pdf $sample label
+         elif [ $check == "0" ]
+         then
+          echo -e "\nGenerating VAF plot for unmatched tumour ${tumour_name}\n"    
+          Rscript $SCRIPTS/vaf.R ${x} ${x} ${PIPELINE}/vaf/${sample_name}.pdf $sample
+          Rscript $SCRIPTS/vaf.R ${x} ${x} ${PIPELINE}/vaf/${sample_name}_labelled.pdf $sample label
+         fi
+        done
+}
+
+rawVariantLists
+lookupStep
+vafPlot
