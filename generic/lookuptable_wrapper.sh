@@ -120,6 +120,38 @@ function vafPlot {
         done
 }
 
+function phylogeny {
+ 	# converts tab delimited variant list into vcf format and then into fasta format
+        # input tab has to be in the format CHROM        POS     RefAlt
+        mkdir ${PIPELINE}/trees ${PIPELINE}/trees/vcf ${PIPELINE}/trees/phy ${PIPELINE}/trees/tab ${PIPELINE}/trees/fasta
+        # create generic vcf header
+        printf "##fileformat=VCFv4.0 \n##fileDate=%s" "$DATE" > ${PIPELINE}/trees/vcf/header.txt
+	echo -e "\n(5) CREATING PHYLOGENETIC TREE FROM FINALIZED VARIANT LISTS \n"
+        for i in $(ls ${VARIANTS}/host/substitutions/*.txt ${VARIANTS}/tumour/substitutions/post-lookup/*.txt );do
+	 sample_name=$(echo ${i##*/} | sed 's/.txt//g')
+	 echo -e "\nMaking tab file for ${sample_name}\n"
+	 awk '{print $1"\t"$2"\t"$3}' ${i} | sed 's/>/ /g'| sort -k 2,2n > ${PIPELINE}/trees/tab/${sample_name}.tab
+         echo "Making vcf from ${sample_name} tab file"
+         rm -f ${PIPELINE}/trees/vcf/${sample_name}.vcf
+         # using most recent verision of tab-to-vcf at /software/CGP
+	 echo "#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	${sample_name}" > ${PIPELINE}/trees/vcf/header.tmp
+	 awk '{print $1"\t"$2"\t.\t"$3"\t"$4"\t.\t.\t.\tGT\t0/1"}' ${PIPELINE}/trees/tab/${sample_name}.tab > ${PIPELINE}/trees/vcf/${sample_name}.tmp
+	 cat ${PIPELINE}/trees/vcf/header.txt ${PIPELINE}/trees/vcf/header.tmp ${PIPELINE}/trees/vcf/${sample_name}.tmp > ${PIPELINE}/trees/vcf/${sample_name}.vcf
+         bgzip -f ${PIPELINE}/trees/vcf/${sample_name}.vcf
+         /software/CGP/bin/tabix -p vcf ${PIPELINE}/trees/vcf/${sample_name}.vcf.gz
+         echo "\nMaking fasta file from ${sample_name}.vcf\n"
+	 cat $REFERENCE | vcf-consensus ${PIPELINE}/trees/vcf/${sample_name}.vcf.gz |sed -e "s/>MT/>"${sample_name}"/g" > ${PIPELINE}/trees/${sample_name}.fa
+        done
+       cat ${PIPELINE}/trees/fasta/*.fa > ${PIPELINE}/trees/raxml/${DATE}_all_samples.fa
+       perl ${SCRIPTS}/Fasta2Phylip.pl ${PIPELINE}/trees/raxml/${DATE}_all_samples.fa ${PIPELINE}/trees/raxml/${DATE}_all_samples.phy
+}
+function runRAxML() {
+	# run RAxML
+	bsub -R"select[mem>15900] rusage[mem=15900]" -M15900 -o ${LOGS}/${DATE}_RAxML.%J.stdout -e ${LOGS}/${DATE}_RAxML.%J.stderr phyml -m GTRGAMMAI -s ${PIPELINE}/trees/raxml/${DATE}_all_samples.phy -n -p $RANDOM
+}
+
 rawVariantLists
 lookupStep
 vafPlot
+phylogeny
+runRAxML
