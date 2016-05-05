@@ -13,9 +13,11 @@
 # $6: path to raxml
 
 if [ "$#" -ne 6 ]; then
+	echo "|"
 	echo "| lookuptable_wrapper.sh: Creates variant lists and VAF plots from Mitotypus output"
 	echo "|"
 	echo "| Usage: lookuptable_wrapper.sh /path/to/GenotypedVariants_final.vcf [number of samples to be analysed] /path/to/scripts/folder /path/to/reference/MT/genome VAF/cutoff /path/to/raxml/install"
+	echo "|"
 	exit
 fi
 
@@ -37,7 +39,7 @@ function checkArray {
   return 1
 }
 
-function rawVariantLists { 
+function rawVariantlists { 
 	echo -e "\n(1) EXTRACTING VARIANT LISTS FROM GenotypedVariants_final.vcf\n"
 	input=${PLATYPUSOUT}/GenotypedVariants_final.vcf
 	loopvar=$(($SAMPLES + 9))
@@ -128,7 +130,7 @@ function phylogeny {
         mkdir ${PIPELINE}/trees ${PIPELINE}/trees/vcf ${PIPELINE}/trees/phy ${PIPELINE}/trees/tab ${PIPELINE}/trees/fasta ${PIPELINE}/trees/raxml
         # create generic vcf header
         printf "##fileformat=VCFv4.0 \n##fileDate=%s\n" "$DATE" > ${PIPELINE}/trees/vcf/header.txt
-	echo -e "\n(5) CREATING PHYLOGENETIC TREE FROM FINALIZED VARIANT LISTS \n"
+	echo -e "\n(5) CREATING FASTAS FROM FINALIZED VARIANT LISTS \n"
         for i in $(ls ${VARIANTS}/host/substitutions/*.txt ${VARIANTS}/tumour/substitutions/post-lookup/*.txt );do
 	 sample_name=$(echo ${i##*/} | sed 's/.txt//g')
 	 echo -e "\nMaking tab file for ${sample_name}\n"
@@ -141,19 +143,20 @@ function phylogeny {
 	 cat ${PIPELINE}/trees/vcf/header.txt ${PIPELINE}/trees/vcf/header.tmp ${PIPELINE}/trees/vcf/${sample_name}.tmp > ${PIPELINE}/trees/vcf/${sample_name}.vcf
          bgzip -f ${PIPELINE}/trees/vcf/${sample_name}.vcf
          /software/CGP/bin/tabix -p vcf ${PIPELINE}/trees/vcf/${sample_name}.vcf.gz
-         echo "\nMaking fasta file from ${sample_name}.vcf\n"
+         echo -e "\nMaking fasta file from ${sample_name}.vcf\n"
 	 cat $REFERENCE | vcf-consensus ${PIPELINE}/trees/vcf/${sample_name}.vcf.gz |sed -e "s/>MT/>"${sample_name}"/g" > ${PIPELINE}/trees/fasta/${sample_name}.fa
         done
        cat ${PIPELINE}/trees/fasta/*.fa > ${PIPELINE}/trees/raxml/${DATE}_all_samples.fa
        perl ${SCRIPTS}/Fasta2Phylip.pl ${PIPELINE}/trees/raxml/${DATE}_all_samples.fa ${PIPELINE}/trees/raxml/${DATE}_all_samples.phy
 }
 function runRaxml() {
-	# run RAxML using the GTR+GAMMA+P-Invar model
+	# run RAxML using the GTR+GAMMA+P-Invar model and default rapid hill climbing algorithm
+	echo -e "\n(6) RUNNING PHYLOGENETIC ANALYSIS USING RAxML\n"
 	bsub -R"select[mem>15900] rusage[mem=15900]" -M15900 -o ${LOGS}/${DATE}_RAxML.%J.stdout -e ${LOGS}/${DATE}_RAxML.%J.stderr ${RAXML}raxmlHPC -m GTRGAMMAI -s ${PIPELINE}/trees/raxml/${DATE}_all_samples.phy -n ${DATE} -p $RANDOM
 }
 
-rawVariantLists
+rawVariantlists
 lookupStep
 vafPlot
 phylogeny
-runRAxML
+runRaxml
