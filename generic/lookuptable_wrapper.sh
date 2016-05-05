@@ -9,11 +9,12 @@
 # $2: total number of samples (including host and tumour)
 # $3: absolute path to scripts folder
 # $4: absolute path to MT reference genome
+# $5: VAF value used in tumour vs. matched normal lookup step
 
-if [ "$#" -ne 4 ]; then
+if [ "$#" -ne 5 ]; then
 	echo "| lookuptable_wrapper.sh: Creates variant lists and VAF plots from Mitotypus output"
 	echo "|"
-	echo "| Usage: lookuptable_wrapper.sh /path/to/GenotypedVariants_final.vcf [number of samples to be analysed] /path/to/scripts/folder /path/to/reference/MT/genome"
+	echo "| Usage: lookuptable_wrapper.sh /path/to/GenotypedVariants_final.vcf [number of samples to be analysed] /path/to/scripts/folder /path/to/reference/MT/genome VAF/cutoff"
 	exit
 fi
 
@@ -25,6 +26,7 @@ SCRIPTS="$3"
 LOGS="${1}/pipeline/logs"
 DATE=$(date +%y-%m-%d)
 REFERENCE="$4"
+CUTOFF="$5"
 mkdir -p ${PIPELINE} ${VARIANTS} ${VARIANTS}/tumour ${VARIANTS}/host ${VARIANTS}/tumour/substitutions ${VARIANTS}/host/substitutions ${VARIANTS}/host/indels ${VARIANTS}/tumour/indels ${VARIANTS}/tumour/substitutions/pre-lookup ${VARIANTS}/tumour/substitutions/post-lookup ${PIPELINE}/vaf 
 
 function checkArray {
@@ -102,18 +104,18 @@ function vafPlot {
          if [ $check == "1" ] && [[ $tumour_name == *"T"* ]];
          then
           echo -e "\nGenerating VAF plot for matched tumour ${tumour_name}\n"
-          Rscript $SCRIPTS/vaf.R $x ${VARIANTS}/tumour/substitutions/post-lookup/headers/$text_file ${PIPELINE}/vaf/${sample_name}.pdf $sample
-          Rscript $SCRIPTS/vaf.R $x ${VARIANTS}/tumour/substitutions/post-lookup/headers/$text_file ${PIPELINE}/vaf/${sample_name}_labelled.pdf $sample label
+          Rscript $SCRIPTS/vaf.R $x ${VARIANTS}/tumour/substitutions/post-lookup/headers/$text_file ${PIPELINE}/vaf/${sample_name}.pdf $CUTOFF $sample
+          Rscript $SCRIPTS/vaf.R $x ${VARIANTS}/tumour/substitutions/post-lookup/headers/$text_file ${PIPELINE}/vaf/${sample_name}_labelled.pdf $CUTOFF $sample label
          elif [[ $tumour_name == *"H"* ]]
          then
           echo -e "\nGenerating VAF plot for host ${tumour_name}\n"
-          Rscript $SCRIPTS/vaf.R $x ${VARIANTS}/host/substitutions/headers/$text_file ${PIPELINE}/vaf/${sample_name}.pdf $sample
-          Rscript $SCRIPTS/vaf.R $x ${VARIANTS}/host/substitutions/headers/$text_file ${PIPELINE}/vaf/${sample_name}_labelled.pdf $sample label
+          Rscript $SCRIPTS/vaf.R $x ${VARIANTS}/host/substitutions/headers/$text_file ${PIPELINE}/vaf/${sample_name}.pdf $CUTOFF $sample
+          Rscript $SCRIPTS/vaf.R $x ${VARIANTS}/host/substitutions/headers/$text_file ${PIPELINE}/vaf/${sample_name}_labelled.pdf $CUTOFF $sample label
          elif [ $check == "0" ]
          then
           echo -e "\nGenerating VAF plot for unmatched tumour ${tumour_name}\n"    
-          Rscript $SCRIPTS/vaf.R ${x} ${x} ${PIPELINE}/vaf/${sample_name}.pdf $sample
-          Rscript $SCRIPTS/vaf.R ${x} ${x} ${PIPELINE}/vaf/${sample_name}_labelled.pdf $sample label
+          Rscript $SCRIPTS/vaf.R ${x} ${x} ${PIPELINE}/vaf/${sample_name}.pdf $CUTOFF $sample
+          Rscript $SCRIPTS/vaf.R ${x} ${x} ${PIPELINE}/vaf/${sample_name}_labelled.pdf $CUTOFF $sample label
          fi
         done
 }
