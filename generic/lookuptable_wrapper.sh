@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# mitotypus data post-processing pipeline
+# mitotypus data post-processing pipeline: lookup step wrapper script
 # author:       Máire Ní Leathlobhair (ml677@cam.ac.uk)
 # date:         May 2016
 
