@@ -29,7 +29,7 @@ DATE=$(date +%y-%m-%d)
 REFERENCE="$4"
 CUTOFF="$5"
 RAXML="$6"
-mkdir -p ${PIPELINE} ${VARIANTS} ${VARIANTS}/tumour ${VARIANTS}/host ${VARIANTS}/tumour/substitutions ${VARIANTS}/host/substitutions ${VARIANTS}/host/indels ${VARIANTS}/tumour/indels ${VARIANTS}/tumour/substitutions/pre-lookup ${VARIANTS}/tumour/substitutions/post-lookup ${PIPELINE}/vaf 
+mkdir -p ${PIPELINE} ${LOGS} ${VARIANTS} ${VARIANTS}/tumour ${VARIANTS}/host ${VARIANTS}/tumour/substitutions ${VARIANTS}/host/substitutions ${VARIANTS}/host/indels ${VARIANTS}/tumour/indels ${VARIANTS}/tumour/substitutions/pre-lookup ${VARIANTS}/tumour/substitutions/post-lookup ${PIPELINE}/vaf 
 
 function checkArray {
   local i
@@ -125,9 +125,9 @@ function vafPlot {
 function phylogeny {
  	# converts tab delimited variant list into vcf format and then into fasta format
         # input tab has to be in the format CHROM        POS     RefAlt
-        mkdir ${PIPELINE}/trees ${PIPELINE}/trees/vcf ${PIPELINE}/trees/phy ${PIPELINE}/trees/tab ${PIPELINE}/trees/fasta
+        mkdir ${PIPELINE}/trees ${PIPELINE}/trees/vcf ${PIPELINE}/trees/phy ${PIPELINE}/trees/tab ${PIPELINE}/trees/fasta ${PIPELINE}/trees/raxml
         # create generic vcf header
-        printf "##fileformat=VCFv4.0 \n##fileDate=%s" "$DATE" > ${PIPELINE}/trees/vcf/header.txt
+        printf "##fileformat=VCFv4.0 \n##fileDate=%s\n" "$DATE" > ${PIPELINE}/trees/vcf/header.txt
 	echo -e "\n(5) CREATING PHYLOGENETIC TREE FROM FINALIZED VARIANT LISTS \n"
         for i in $(ls ${VARIANTS}/host/substitutions/*.txt ${VARIANTS}/tumour/substitutions/post-lookup/*.txt );do
 	 sample_name=$(echo ${i##*/} | sed 's/.txt//g')
@@ -142,14 +142,14 @@ function phylogeny {
          bgzip -f ${PIPELINE}/trees/vcf/${sample_name}.vcf
          /software/CGP/bin/tabix -p vcf ${PIPELINE}/trees/vcf/${sample_name}.vcf.gz
          echo "\nMaking fasta file from ${sample_name}.vcf\n"
-	 cat $REFERENCE | vcf-consensus ${PIPELINE}/trees/vcf/${sample_name}.vcf.gz |sed -e "s/>MT/>"${sample_name}"/g" > ${PIPELINE}/trees/${sample_name}.fa
+	 cat $REFERENCE | vcf-consensus ${PIPELINE}/trees/vcf/${sample_name}.vcf.gz |sed -e "s/>MT/>"${sample_name}"/g" > ${PIPELINE}/trees/fasta/${sample_name}.fa
         done
        cat ${PIPELINE}/trees/fasta/*.fa > ${PIPELINE}/trees/raxml/${DATE}_all_samples.fa
        perl ${SCRIPTS}/Fasta2Phylip.pl ${PIPELINE}/trees/raxml/${DATE}_all_samples.fa ${PIPELINE}/trees/raxml/${DATE}_all_samples.phy
 }
-function runRAxML() {
+function runRaxml() {
 	# run RAxML using the GTR+GAMMA+P-Invar model
-	bsub -R"select[mem>15900] rusage[mem=15900]" -M15900 -o ${LOGS}/${DATE}_RAxML.%J.stdout -e ${LOGS}/${DATE}_RAxML.%J.stderr .${RAXML}raxmlHPC -m GTRGAMMAI -s ${PIPELINE}/trees/raxml/${DATE}_all_samples.phy -n ${DATE} -p $RANDOM
+	bsub -R"select[mem>15900] rusage[mem=15900]" -M15900 -o ${LOGS}/${DATE}_RAxML.%J.stdout -e ${LOGS}/${DATE}_RAxML.%J.stderr ${RAXML}raxmlHPC -m GTRGAMMAI -s ${PIPELINE}/trees/raxml/${DATE}_all_samples.phy -n ${DATE} -p $RANDOM
 }
 
 rawVariantLists
