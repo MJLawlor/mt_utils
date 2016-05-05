@@ -10,11 +10,12 @@
 # $3: absolute path to scripts folder
 # $4: absolute path to MT reference genome
 # $5: VAF value used in tumour vs. matched normal lookup step
+# $6: path to raxml
 
-if [ "$#" -ne 5 ]; then
+if [ "$#" -ne 6 ]; then
 	echo "| lookuptable_wrapper.sh: Creates variant lists and VAF plots from Mitotypus output"
 	echo "|"
-	echo "| Usage: lookuptable_wrapper.sh /path/to/GenotypedVariants_final.vcf [number of samples to be analysed] /path/to/scripts/folder /path/to/reference/MT/genome VAF/cutoff"
+	echo "| Usage: lookuptable_wrapper.sh /path/to/GenotypedVariants_final.vcf [number of samples to be analysed] /path/to/scripts/folder /path/to/reference/MT/genome VAF/cutoff /path/to/raxml/install"
 	exit
 fi
 
@@ -27,6 +28,7 @@ LOGS="${1}/pipeline/logs"
 DATE=$(date +%y-%m-%d)
 REFERENCE="$4"
 CUTOFF="$5"
+RAXML="$6"
 mkdir -p ${PIPELINE} ${VARIANTS} ${VARIANTS}/tumour ${VARIANTS}/host ${VARIANTS}/tumour/substitutions ${VARIANTS}/host/substitutions ${VARIANTS}/host/indels ${VARIANTS}/tumour/indels ${VARIANTS}/tumour/substitutions/pre-lookup ${VARIANTS}/tumour/substitutions/post-lookup ${PIPELINE}/vaf 
 
 function checkArray {
@@ -146,8 +148,8 @@ function phylogeny {
        perl ${SCRIPTS}/Fasta2Phylip.pl ${PIPELINE}/trees/raxml/${DATE}_all_samples.fa ${PIPELINE}/trees/raxml/${DATE}_all_samples.phy
 }
 function runRAxML() {
-	# run RAxML
-	bsub -R"select[mem>15900] rusage[mem=15900]" -M15900 -o ${LOGS}/${DATE}_RAxML.%J.stdout -e ${LOGS}/${DATE}_RAxML.%J.stderr phyml -m GTRGAMMAI -s ${PIPELINE}/trees/raxml/${DATE}_all_samples.phy -n -p $RANDOM
+	# run RAxML using the GTR+GAMMA+P-Invar model
+	bsub -R"select[mem>15900] rusage[mem=15900]" -M15900 -o ${LOGS}/${DATE}_RAxML.%J.stdout -e ${LOGS}/${DATE}_RAxML.%J.stderr .${RAXML}raxmlHPC -m GTRGAMMAI -s ${PIPELINE}/trees/raxml/${DATE}_all_samples.phy -n ${DATE} -p $RANDOM
 }
 
 rawVariantLists
