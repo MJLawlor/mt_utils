@@ -1,3 +1,6 @@
+# We are thankful to David C. Wedge, Wellcome Trust Sanger Institute, who kindly provided the 
+# original code, which we adapted for our own purposes.
+
 args = commandArgs(trailingOnly=TRUE)
 setwd(args[1])
 snps = read.table(args[2],sep="\t",header=F,stringsAsFactors=F,row.names=NULL)
