@@ -1,5 +1,4 @@
-# We are thankful to David C. Wedge, Wellcome Trust Sanger Institute, who kindly provided the 
-# original code, which we adapted for our own purposes.
+# We are thankful to David C. Wedge, Wellcome Trust Sanger Institute, who kindly provided the original code, which we adapted.
 
 args = commandArgs(trailingOnly=TRUE)
 setwd(args[1])
