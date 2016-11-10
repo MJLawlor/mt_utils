@@ -276,18 +276,19 @@ function runPhyml() {
 	bsub -R"select[mem>15900] rusage[mem=15900]" -M15900 -o ${LOGS}/${DATE}.%J.stdout -e ${LOGS}/${DATE}.%J.stderr phyml -i ${1} -b -4 -m GTR -t e -v e -a e -s BEST -o tlr --run_id=${1} --quiet
 }
 
-makeUnfilteredVariantLists
-fixSampleswap
+# List of available functions
+#makeUnfilteredVariantLists
+#fixSampleswap
 #discardSamples tumour
 #discardSamples host
-lookupStep
-rescueVariants
-addHeader host pre-filtering
-addHeader host post-filtering
-addHeader tumour pre-filtering
-addHeader tumour post-lookup
-generateVAFplots host
-generateVAFplots tumour
+#lookupStep
+#rescueVariants
+#addHeader host pre-filtering
+#addHeader host post-filtering
+#addHeader tumour pre-filtering
+#addHeader tumour post-lookup
+#generateVAFplots host
+#generateVAFplots tumour
 #assignClades
 #makeTrees
 #runPhyml ${PIPELINE}/trees/phy/${DATE}_tumour_samples.fa
